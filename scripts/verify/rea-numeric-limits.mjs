@@ -525,12 +525,7 @@ if (direct) {
   ]);
   const listText = async (dir) => {
     const output = [];
-    let entries;
-    try {
-      entries = await readdir(dir, { withFileTypes: true });
-    } catch {
-      return output;
-    }
+    const entries = await readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
       if (skipDir.has(entry.name)) continue;
       const path = join(dir, entry.name);
