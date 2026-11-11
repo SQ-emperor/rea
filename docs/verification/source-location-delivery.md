@@ -147,10 +147,15 @@ the measured build and selected source-location owners. A later unrelated genera
 desktop SQLite diagnostic change and rebuild are outside this snapshot; later
 whole-tree hashes do not replace the measured one.
 
-The [portable driver](https://github.com/morluto/rea/blob/main/scripts/verify/analysis/source-location-delivery/task.mjs)
-has SHA-256 `b21ec9d5315682337eb55a4ad208e2145a7397d8d567cdb6653facd3f0bec90e`.
+The measured revision of the [portable driver](https://github.com/morluto/rea/blob/main/scripts/verify/analysis/source-location-delivery/task.mjs)
+had SHA-256 `b21ec9d5315682337eb55a4ad208e2145a7397d8d567cdb6653facd3f0bec90e`.
 The [observer](https://github.com/morluto/rea/blob/main/scripts/verify/analysis/budget-calibration-run.py)
 has SHA-256 `c18a06c44715c97ec9cbc76248dfbcd862d0e5ca3cd0c159d868bc7fa1fa9e9f`.
+The current driver additionally checks the MCP child's final exit and output
+closure, preserving both task and shutdown failures. Its shared process-owner
+sources are included in new aggregation hashes; the historical measurements
+above have not been rerun with this lifecycle correction.
+
 Use the repository's built runtime and pinned Node. Acquisition refuses changed
 publisher bytes; the existing acquisition helper creates `artifacts.json` and
 analyst manifests under the selected artifact directory.

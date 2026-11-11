@@ -3,6 +3,8 @@ import { readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import assert from "node:assert/strict";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { withVerifierCleanup } from "../../../lib/verifier-cleanup.mjs";
+import { importVerifierSource } from "../../../lib/verifier-source-loader.mjs";
 
 // Acquire artifactDir with docs/verification/source-map-budgets-2026-11-09/acquire.py.
 // This driver runs the public compiled stdio workflow; no target application is executed.
@@ -99,6 +101,10 @@ assert.equal(bytes.length, source.bytes);
 assert.equal(createHash("sha256").update(bytes).digest("hex"), source.sha256);
 const artifact = JSON.parse(bytes.toString("utf8"));
 const manifestPath = localFile(source.generated_script.path + ".manifest.json");
+const { ProviderProcessSupervisor } = await importVerifierSource(
+  new URL("../../../../src/process/ProviderProcess.ts", import.meta.url).href,
+  import.meta.url,
+);
 const child = spawn(process.execPath, [join(root, "scripts/rea.mjs"), "mcp"], {
   cwd: root,
   env: {
@@ -115,6 +121,14 @@ const child = spawn(process.execPath, [join(root, "scripts/rea.mjs"), "mcp"], {
   },
   stdio: ["pipe", "pipe", "pipe"],
 });
+const supervisor = new ProviderProcessSupervisor(
+  { process: child, ownsProcessLifetime: true },
+  {
+    captureStdout: false,
+    // Protocol and bounded stderr receipts remain owned by this driver.
+    maxDiagnosticBytes: 0,
+  },
+);
 let buffer = "",
   sequence = 0,
   stderr = "";
@@ -199,7 +213,7 @@ const contentOf = (r) => {
   assert(!r.isError, JSON.stringify(errorOf(r)));
   return r.structuredContent;
 };
-try {
+await withVerifierCleanup(async () => {
   await rpc("initialize", {
     protocolVersion: "2025-03-26",
     capabilities: {},
@@ -410,17 +424,24 @@ try {
       { flag: "wx" },
     );
   console.log(JSON.stringify(result));
-} finally {
-  child.stdin.end();
-  if (child.exitCode === null && child.signalCode === null)
-    await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        child.kill("SIGTERM");
-        reject(Error("MCP close timeout"));
-      }, 5000);
-      child.once("exit", () => {
-        clearTimeout(timer);
-        resolve();
-      });
-    });
-}
+}, [
+  async () => {
+    child.stdin.end();
+    const exited = await supervisor.waitForExit(5000);
+    const stopped = await supervisor.stop();
+    if (stopped.status === "incomplete")
+      throw Object.assign(
+        new Error(`MCP child cleanup incomplete: ${stopped.reason}`, {
+          cause: stopped,
+        }),
+        { cleanupOwner: supervisor },
+      );
+    assert(exited, "MCP close timeout");
+    assert(supervisor.observedOutputClose(), "MCP output did not close");
+    const exit = supervisor.observedExit();
+    assert(
+      exit?.code === 0 && exit.signal === null,
+      `MCP server exited (${String(exit?.code)}, ${String(exit?.signal)}): ${stderr}`,
+    );
+  },
+]);
