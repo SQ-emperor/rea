@@ -428,7 +428,10 @@ export class CutterBridgeClient {
                 cause.limit.resource,
                 cause.limit.reason,
                 cause.limit.reportedLimits,
-                resourceConstraintRecovery(cause.limit),
+                {
+                  ...resourceConstraintRecovery(cause.limit),
+                  limit: cause.limit.limit,
+                },
               );
           }
           return undefined;
