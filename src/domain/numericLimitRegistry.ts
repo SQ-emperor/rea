@@ -14,7 +14,7 @@ export interface NumericLimitRegistryEntry {
   readonly name: string;
   readonly update_mode: "restart";
   readonly policy: "restart-only" | "per-call";
-  readonly read: "startup" | "per-call";
+  readonly read: "startup" | "per-call" | "construction";
   readonly reason: string;
 }
 
@@ -31,7 +31,7 @@ export const NUMERIC_LIMIT_REGISTRY = [
     name: "REA_DEBUGGER_COMMAND_DEADLINE_MS",
     update_mode: "restart",
     policy: "per-call",
-    read: "per-call",
+    read: "construction",
     reason:
       "GDB and Rizin apply this deadline to each debugger command. The session manager currently copies it at construction from the launch environment; the runtime migration reads the accepted operation snapshot instead.",
   },
@@ -39,7 +39,7 @@ export const NUMERIC_LIMIT_REGISTRY = [
     name: "REA_DEBUGGER_MAX_COMMAND_OUTPUT_BYTES",
     update_mode: "restart",
     policy: "per-call",
-    read: "per-call",
+    read: "construction",
     reason:
       "Each debugger command retains output up to this ceiling. The session manager currently copies it at construction from the launch environment; the runtime migration reads the accepted operation snapshot instead.",
   },
@@ -95,7 +95,7 @@ export const NUMERIC_LIMIT_REGISTRY = [
     name: "REA_JEB_MCP_TIMEOUT_MS",
     update_mode: "restart",
     policy: "per-call",
-    read: "per-call",
+    read: "construction",
     reason:
       "Bounds each JEB tools/call and catalog discovery. The connection currently captures the launch value when it is created; the runtime migration reads the accepted snapshot for each request.",
   },
