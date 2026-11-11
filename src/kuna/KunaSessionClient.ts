@@ -418,6 +418,8 @@ export class KunaSessionClient implements AnalysisClient {
     | undefined;
   /** Launch configuration captured when the export starts, for its deadline source. */
   #kunaConfiguration: KunaConfiguration | undefined;
+  /** Deadline the project export accepted. Not recomputed from later settings. */
+  #acceptedProjectDeadline: KunaDeadline | undefined;
   #inventory:
     | Promise<Result<readonly KunaInventoryFunction[], AnalysisError>>
     | undefined;
@@ -2061,13 +2063,16 @@ export class KunaSessionClient implements AnalysisClient {
   }
 
   #projectDeadline(): KunaDeadline | undefined {
-    return this.#kunaConfiguration === undefined
-      ? undefined
-      : kunaProjectDeadline(this.#kunaConfiguration);
+    // The export already accepted this deadline. Re-resolving after a reset
+    // would throw away the value the failed export used.
+    return this.#acceptedProjectDeadline;
   }
 
   async #lookupOrBuild(installation: KunaInstallation): Promise<void> {
     this.#kunaConfiguration = installation.configuration;
+    this.#acceptedProjectDeadline ??= kunaProjectDeadline(
+      installation.configuration,
+    );
     const key = kunaProjectKey({
       targetSha256: this.#target.sha256,
       targetBasename: basename(this.#target.path),
@@ -2096,6 +2101,9 @@ export class KunaSessionClient implements AnalysisClient {
         targetPath: this.#target.path,
         targetSha256: this.#target.sha256,
         signal: this.#session.signal,
+        ...(this.#acceptedProjectDeadline === undefined
+          ? {}
+          : { deadline: this.#acceptedProjectDeadline }),
         onStatus: (status) => {
           this.#status = status;
           if (status.inventory !== null) listed(status.inventory);
@@ -2151,6 +2159,7 @@ export class KunaSessionClient implements AnalysisClient {
     this.#project = undefined;
     this.#status = undefined;
     this.#exportFailure = undefined;
+    this.#acceptedProjectDeadline = undefined;
   }
 
   #adopt(project: KunaProject): void {
