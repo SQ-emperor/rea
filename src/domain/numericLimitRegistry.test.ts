@@ -29,7 +29,8 @@ it("gives every numeric exception a reason and a matching inventory row", () => 
   }
   expect(NUMERIC_LIMIT_REGISTRY).toHaveLength(15);
   for (const definition of Object.values(ANALYSIS_SETTINGS)) {
-    if (definition.environment === undefined) continue;
+    if (!("environment" in definition) || definition.environment === undefined)
+      continue;
     expect(inventory, definition.environment).toContain(
       `\`${definition.environment}\``,
     );
