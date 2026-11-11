@@ -15,7 +15,7 @@ export interface NumericLimitRegistryEntry {
   readonly name: string;
   readonly update_mode: "restart";
   readonly policy: "restart-only";
-  readonly read: "startup";
+  readonly read: "startup" | "construction";
   readonly reason: string;
 }
 

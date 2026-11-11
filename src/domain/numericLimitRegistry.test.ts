@@ -23,9 +23,17 @@ it("gives every numeric exception a reason and a matching inventory row", () => 
     expect(entry.update_mode).toBe("restart");
     expect(entry.reason.trim().length).toBeGreaterThanOrEqual(40);
     expect(entry.policy).toBe("restart-only");
-    expect(entry.read).toBe("startup");
+    expect(["startup", "construction"]).toContain(entry.read);
     expect(runtimeEnvironments.has(entry.name)).toBe(false);
     expect(inventory).toContain(`\`${entry.name}\``);
   }
   expect(NUMERIC_LIMIT_REGISTRY).toHaveLength(15);
+  for (const definition of Object.values(ANALYSIS_SETTINGS)) {
+    if (definition.environment === undefined) continue;
+    expect(inventory, definition.environment).toContain(
+      `\`${definition.environment}\``,
+    );
+  }
+  expect(inventory).not.toMatch(/^\| `REA_MANAGED_LINUX_HOPPER_LAUNCHER`/mu);
+  expect(inventory).not.toMatch(/^\| `REA_WORKFLOW_PROVIDER`/mu);
 });
