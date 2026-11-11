@@ -363,20 +363,27 @@ export const requiredRuntimeLimitFailure = (
 const namesIn = (source, pattern) =>
   new Set([...source.matchAll(pattern)].map((match) => match[1]));
 
-/** Existing launch-seed migrations. A new per-call policy is rejected. */
-const TEMPORARY_PER_CALL_LIMITS = new Set([
-  "REA_BRIDGE_MAX_REQUEST_BYTES",
-  "REA_DEBUGGER_COMMAND_DEADLINE_MS",
-  "REA_DEBUGGER_MAX_COMMAND_OUTPUT_BYTES",
-  "REA_HOPPER_CALLER_SCAN_BUDGET_MS",
-  "REA_JEB_MCP_TIMEOUT_MS",
-  "REA_KUNA_PROJECT_TIMEOUT_MS",
-  "REA_KUNA_TIMEOUT_MS",
-  "REA_PWNTOOLS_MAX_INPUT_BYTES",
-  "REA_WINDOWS_CHANGE_TIME_DRIFT_MS",
-  "REA_WINDOWS_CHANGE_TIME_SETTLE_MAX_POLLS",
-  "REA_WINDOWS_CHANGE_TIME_SETTLE_POLL_MS",
-]);
+/**
+ * Names still registered as per-call while they move into ANALYSIS_SETTINGS.
+ * This branch has moved those limits, so the allowlist is empty.
+ */
+const TEMPORARY_PER_CALL_LIMITS = new Set([]);
+
+/** Temporary exceptions must be removed from both the registry and allowlist. */
+export const perCallLimitFailures = (listed, temporary) => {
+  const failures = [];
+  for (const [name, policy] of listed)
+    if (policy === "per-call" && !temporary.has(name))
+      failures.push(
+        `${name} is a new per-call exception. Move it into ANALYSIS_SETTINGS instead of extending the temporary list.`,
+      );
+  for (const name of temporary)
+    if (listed.get(name) !== "per-call")
+      failures.push(
+        `${name} is no longer a temporary per-call exception; remove it from the allowlist`,
+      );
+  return failures;
+};
 
 const direct =
   process.argv[1] !== undefined &&
@@ -414,10 +421,6 @@ if (direct) {
       failures.push(
         `${name} is both a runtime setting and on the exception list`,
       );
-    if (policy === "per-call" && !TEMPORARY_PER_CALL_LIMITS.has(name))
-      failures.push(
-        `${name} is a new per-call exception. Move it into ANALYSIS_SETTINGS instead of extending the temporary list.`,
-      );
     if (read !== "startup" && read !== "construction")
       failures.push(`${name} is restart-only but is not read at startup`);
   }
@@ -434,6 +437,12 @@ if (direct) {
     if (!/updateMode:\s*"(?:runtime|restart)"/u.test(body))
       failures.push("an analysis setting is missing updateMode");
   }
+  failures.push(
+    ...perCallLimitFailures(
+      new Map([...listed].map(([name, entry]) => [name, entry.policy])),
+      TEMPORARY_PER_CALL_LIMITS,
+    ),
+  );
 
   const discovered = discoverNumericLimitUses(
     await Promise.all(
